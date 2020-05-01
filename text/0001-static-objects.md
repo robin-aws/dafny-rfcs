@@ -46,7 +46,7 @@ To support initializing fields with object types (constant or variable), modules
 
 1. be anonymous,
 2. take no parameters,
-3. specify no `requires` clauses,
+3. specify no `requires` clauses (although they implicitly assume the post-condition of all imported module constructors),
 4. not specify `decreases *`,
 4. ???
 
@@ -102,12 +102,38 @@ module Math {
 }
 ```
 
-This pattern will be particularly useful in allowing native code to be developed as a separately-compiled entity which registers its implementations on initialization.
+This pattern will be particularly useful in allowing native code to be developed as a separately-compiled entity which registers its implementations on initialization. If `GetRandomNumber` was an `{:extern}` method instead, the external implementation has to be available in order to build the Dafny package in many target languages.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 Modules would be constructed in the order they are encountered in a depth-first traversal of the module import graph, where the order of edges between modules is determined by the order of `import` statements. Because this graph must be acyclical, and since the contents of the module constructor can only reference imported modules, this would ensure circular dependencies between module initialization is not possible.
+
+The post-conditions of module constructors would be required to be no weaker than the post-conditions of the modules they import. For example:
+
+```dafny
+module A {
+  var x: nat
+  predicate Valid() {
+    x > 1
+  }
+  constructor() ensures Valid() {
+    x := 12;
+  }
+}
+
+module B {
+  import A
+  var y: nat
+  predicate Valid() {
+    y % 2 == 0
+  }
+  constructor() ensures Valid() && A.Valid() {
+    y := 10;
+    A.x := A.x + y;
+  }
+}
+```
 
 Module constructors would have similar rules around refinement to module methods: if `A refines B` and both `A` and `B` define a module constructor, `A`'s must be a valid refinement of `B`'s.
 
@@ -130,7 +156,7 @@ module Foo {
     
     constructor() ensures Valid() { ... }
 
-    method Collect(int )
+    method Collect(x: int)
     ...
   }
 
@@ -153,6 +179,78 @@ module Foo {
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 Using "constructor" for the initialization method allows us to avoid introducing another keyword, but is slightly confusing. It does imply the same two-phase initialization constraints that class constructors require, although allowing the `new;` statement in module constructors is also questionable.
+
+An alternate version of this proposal (c/o Rustan) would introduce "singleton" objects instead, which are similar to class definitions but define a single object instance, and with the same constructor restrictions as proposed for modules above.
+
+TODO: pros and cons. 
+
+Here are the examples above using this variant:
+
+```dafny
+singleton System {
+  
+  class FileHandleOutput {
+    const handle: int
+
+    constructor(handle: int) {
+      this.handle := handle;
+    }
+
+    ...
+  }
+
+  const STDOUT: FileHandleOutput
+  const STDERR: FileHandleOutput
+
+  constructor() {
+    STDOUT := new FileHandleOutput(1);
+    STDERR := new FileHandleOutput(2);
+  }
+}
+
+singleton Math {
+
+  trait RandomNumberGenerator {
+    method Generate(max: int) returns (res: int)
+  }
+
+  var RandomImpl: RandomNumberGenerator?
+
+  method SetRandomNumberGenerator(impl: RandomNumberGenerator) 
+    requires RandomImpl == null 
+  {
+    RandomImpl := impl;
+  }
+
+  method GetRandomNumber(max: int) returns (res: int) 
+    requires RandomImpl != null
+  {
+    res := RandomImpl.Generate(max);
+  }
+}
+
+module Foo {
+
+  singleton SharedCollector {
+    ...
+
+    ghost var Repr: set<object>
+    predicate Valid() reads Repr
+    
+    constructor() ensures Valid() { ... }
+
+    method Collect(x: int)
+    ...
+  }
+
+  method Main() {
+    SomeOtherMethodThatHasNeverHeardOfCollectors();
+
+    // How to prove that SharedCollector.Valid() is true here?
+    SharedCollector.Collect(42);
+  }
+}
+```
 
 # Prior art
 [prior-art]: #prior-art
@@ -182,5 +280,5 @@ module Foo {
 }
 ```
 
-These statements would be executed in textual order immediately before the constructor is executed, if provided. This would be pure sugar: the generic compiler could prepend these module-level statements to any user-provided constructor.
+These statements would be executed in textual order immediately before the constructor is executed, if provided. This would be pure sugar: the generic compiler could prepend these module-level statements to any user-provided constructor, maintaining order.
  
