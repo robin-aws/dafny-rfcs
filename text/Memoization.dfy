@@ -9,14 +9,10 @@ module Memoization {
     }
 
     constructor(f: T -> R)
+      ensures Valid()
     {
       this.f := f;
-    }
-
-    method Store(t: T, r: R) 
-      modifies this
-    {
-      results := results[t := r];
+      this.results := map[];
     }
 
     method Apply(t: T) returns (res: R)
