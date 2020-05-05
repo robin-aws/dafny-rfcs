@@ -1,21 +1,33 @@
+include "./Validatable.dfy"
+
 module Memoization {
 
-  class Memoizer<T(==), R> {
-    const f: T -> R
-    var results: map<T, R>
+  import opened Validation
+
+  // Specialized to nat -> nat because parameterized classes can't
+  // extend traits yet.
+  class Memoizer extends Validatable {
+    const f: nat -> nat
+    var results: map<nat, nat>
 
     predicate Valid() reads this {
       forall t :: t in results.Keys ==> results[t] == f(t)
     }
 
-    constructor(f: T -> R)
+    constructor(singletons: AllSingletons, f: nat -> nat)
+      requires singletons.AllValid()
+      modifies singletons
       ensures Valid()
+      ensures singletons.AllValid()
     {
       this.f := f;
       this.results := map[];
+      Repr := {this};
+      new;
+      singletons.AddSingleton(this);
     }
 
-    method Apply(t: T) returns (res: R)
+    method Apply(t: nat) returns (res: nat)
       requires Valid()
       modifies this
       ensures Valid()

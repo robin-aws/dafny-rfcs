@@ -1,4 +1,9 @@
+include "./Validatable.dfy"
+
 module Random {
+
+  import opened Validation
+
   trait RandomNumberGenerator {
     ghost var Repr: set<object>
     predicate Valid() 
@@ -37,6 +42,35 @@ module Random {
       }
       res := next;
       next := next + 1;
+    }
+  }
+
+  // Adaptor - only necessary because RandomNumberGenerator can't extend
+  // Validatable itself. Useful to show existing types can be plugged into
+  // the system though.
+  class RandomNumberGeneratorAsValidatable extends Validatable {
+    const generator: RandomNumberGenerator
+
+    predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
+      && this in Repr
+      && generator in Repr
+      && generator.Repr <= Repr
+      && this !in generator.Repr
+      && generator.Valid()
+    }
+
+    constructor(singletons: AllSingletons, generator: RandomNumberGenerator)
+      requires singletons.AllValid()
+      requires generator.Valid()
+      requires singletons !in generator.Repr
+      modifies singletons
+      ensures Valid()
+      ensures singletons.AllValid()
+    {
+      this.generator := generator;
+      this.Repr := {this} + generator.Repr;
+      new;
+      singletons.AddSingleton(this);
     }
   }
 }

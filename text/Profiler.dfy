@@ -1,12 +1,13 @@
 include "./Collections.dfy"
+include "./Validatable.dfy"
 
 module Profiling {
 
   import opened Collections
+  import opened Validation
 
-  class Profiler {
+  class Profiler extends Validatable {
 
-    ghost var Repr: set<object>
     predicate Valid() 
       reads this, Repr
       ensures Valid() ==> this in Repr
@@ -20,13 +21,17 @@ module Profiling {
     var calls: List
     var locations: map<string, nat>
 
-    constructor() 
+    constructor(singletons: AllSingletons) 
+      requires singletons.AllValid()
+      modifies singletons
       ensures Valid() 
+      ensures singletons.AllValid()
       ensures fresh(Repr)
     {
       calls := new ArrayList();
       new;
       Repr := {this} + calls.Repr;
+      singletons.AddSingleton(this);
     }
 
     method AddLocation(name: string) 

@@ -1,18 +1,21 @@
 include "./Profiler.dfy"
 include "./Random.dfy"
 include "./Memoization.dfy"
+include "./Validatable.dfy"
 
 module Singletons {
 
   import opened Profiling
   import opened Random
   import opened Memoization
+  import opened Validation
 
   class Globals {
+    const singletons: AllSingletons
     var generator: RandomNumberGenerator?
     const profiler: Profiler
-    const fibonacciMemoized: Memoizer<nat, nat>
-    const factorialMemoized: Memoizer<nat, nat>
+    const fibonacciMemoized: Memoizer
+    const factorialMemoized: Memoizer
 
     constructor() 
       ensures profiler.Valid() 
@@ -24,10 +27,17 @@ module Singletons {
       ensures factorialMemoized.Valid()
       ensures fresh(factorialMemoized)
     {
-      profiler := new Profiler();
-      generator := new MyRandomNumberGenerator();
-      fibonacciMemoized := new Memoizer(n => Fibonacci(n));
-      factorialMemoized := new Memoizer(n => Factorial(n));
+      var singletons := new AllSingletons();
+      this.singletons := singletons;
+
+      profiler := new Profiler(singletons);
+
+      var generator := new MyRandomNumberGenerator();
+      this.generator := generator;
+      var wrapper := new RandomNumberGeneratorAsValidatable(singletons, generator);
+      assert singletons.AllValid();
+      fibonacciMemoized := new Memoizer(singletons, (n: nat) => Fibonacci(n));
+      factorialMemoized := new Memoizer(singletons, (n: nat) => Factorial(n));
 
       new;
       
