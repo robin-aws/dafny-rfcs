@@ -18,8 +18,8 @@ module Singletons {
     const factorialMemoized: Memoizer
 
     constructor() 
-      ensures generatorWrapper in singletons.singletons
       ensures singletons.AllValid()
+      ensures fresh(singletons.singletonReprs)
     {
       var singletons := new AllSingletons();
       this.singletons := singletons;
@@ -39,9 +39,10 @@ module Singletons {
       new;
       
       singletons.AddSingleton(profiler);
-
+      
       profiler.AddLocation(singletons, "Foo");
       profiler.AddLocation(singletons, "Bar");
+      assert fresh(fibonacciMemoized.Repr);
     }
 
     static function method Fibonacci(n: nat): nat
@@ -57,13 +58,20 @@ module Singletons {
 
   method Main() {
     var globals := new Globals();
+      
+    if globals.generatorWrapper != null {
+      globals.singletons.ExpectValid(globals.generatorWrapper);
+      var random := globals.generatorWrapper.generator.Generate(10);
+    }
 
-    var random := globals.generatorWrapper.generator.Generate(10);
-
+    globals.singletons.ExpectValid(globals.profiler);
     expect "Foo" in globals.profiler.locations;
     globals.profiler.RecordCall("Foo");
 
+    globals.singletons.ExpectValid(globals.factorialMemoized);
     var tenthFactorial := globals.factorialMemoized.Apply(10);
+
+    globals.singletons.ExpectValid(globals.fibonacciMemoized);
     var tenthFibonacci := globals.fibonacciMemoized.Apply(10);
   }
 }

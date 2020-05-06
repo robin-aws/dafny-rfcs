@@ -1,21 +1,25 @@
 module Validation {
   trait {:termination false} Validatable {
     ghost var Repr: set<object>
-    // This would include `AllSingletons !in Repr`
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr
   }
 
   // This would be a singleton to track all valid-by-default objects
   class AllSingletons {
-    ghost var singletons: set<Validatable>
+    var singletons: set<Validatable>
     ghost var singletonReprs: set<object>
 
     predicate AllValid() reads this, singletons, singletonReprs {
       forall s :: s in singletons ==> this !in s.Repr && s.Repr <= singletonReprs && s.Valid()
     }
 
-    constructor() ensures AllValid() {
+    constructor() 
+      ensures AllValid() 
+      ensures singletons == {}
+      ensures singletonReprs == {}
+    {
       singletons := {};
+      singletonReprs := {};
     }
 
     method AddSingleton(v: Validatable) 
@@ -29,6 +33,14 @@ module Validation {
     {
       singletons := singletons + {v};
       singletonReprs := singletonReprs + v.Repr;
+    }
+
+    method ExpectValid(s: Validatable) 
+      requires AllValid()
+      ensures s.Valid()
+      ensures s.Repr <= s.Repr <= singletonReprs
+    {
+      expect s in singletons;
     }
   }
 }
