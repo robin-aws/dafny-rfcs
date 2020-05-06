@@ -23,8 +23,8 @@ module Validation {
       requires v.Valid()
       requires this !in v.Repr
       modifies this
-      ensures v in singletons
-      ensures v.Repr <= singletonReprs
+      ensures singletons == old(singletons) + {v}
+      ensures singletonReprs == old(singletonReprs) + v.Repr
       ensures AllValid()
     {
       singletons := singletons + {v};

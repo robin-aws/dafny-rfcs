@@ -14,17 +14,13 @@ module Memoization {
       forall t :: t in results.Keys ==> results[t] == f(t)
     }
 
-    constructor(singletons: AllSingletons, f: nat -> nat)
-      requires singletons.AllValid()
-      modifies singletons
+    constructor(f: nat -> nat)
       ensures Valid()
-      ensures singletons.AllValid()
+      ensures fresh(Repr)
     {
       this.f := f;
       this.results := map[];
       Repr := {this};
-      new;
-      singletons.AddSingleton(this);
     }
 
     method Apply(t: nat) returns (res: nat)

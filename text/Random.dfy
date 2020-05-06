@@ -9,14 +9,13 @@ module Random {
     predicate Valid() 
       reads this, Repr
       ensures Valid() ==> this in Repr
-    {
-      this in Repr
-    }
+
     method Generate(max: nat) returns (res: nat) 
       requires Valid()
       requires 0 < max
       modifies Repr
       ensures Valid()
+      ensures fresh(Repr - old(Repr))
       ensures 0 <= res < max 
   }
 
@@ -30,11 +29,19 @@ module Random {
       Repr := {this};
     }
 
+    predicate Valid() 
+      reads this, Repr
+      ensures Valid() ==> this in Repr
+    {
+      Repr == {this}
+    }
+    
     method Generate(max: nat) returns (res: nat)
       requires Valid()
       requires 0 < max
       modifies Repr
       ensures Valid()
+      ensures fresh(Repr - old(Repr))
       ensures 0 <= res < max 
     {
       if next >= max {
@@ -59,18 +66,26 @@ module Random {
       && generator.Valid()
     }
 
-    constructor(singletons: AllSingletons, generator: RandomNumberGenerator)
-      requires singletons.AllValid()
+    constructor(generator: RandomNumberGenerator)
       requires generator.Valid()
-      requires singletons !in generator.Repr
-      modifies singletons
       ensures Valid()
-      ensures singletons.AllValid()
+      ensures fresh(Repr - generator.Repr)
     {
       this.generator := generator;
       this.Repr := {this} + generator.Repr;
       new;
-      singletons.AddSingleton(this);
+    }
+
+    method Generate(max: nat) returns (res: nat)
+      requires Valid()
+      requires 0 < max
+      modifies Repr
+      ensures Valid()
+      ensures fresh(Repr - old(Repr))
+      ensures 0 <= res < max 
+    {
+      res := generator.Generate(max);
+      Repr := {this} + generator.Repr;
     }
   }
 }

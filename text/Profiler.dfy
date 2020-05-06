@@ -21,23 +21,21 @@ module Profiling {
     var calls: List
     var locations: map<string, nat>
 
-    constructor(singletons: AllSingletons) 
-      requires singletons.AllValid()
-      modifies singletons
-      ensures Valid() 
-      ensures singletons.AllValid()
+    constructor() 
+      ensures Valid()
       ensures fresh(Repr)
     {
       calls := new ArrayList();
       new;
       Repr := {this} + calls.Repr;
-      singletons.AddSingleton(this);
     }
 
-    method AddLocation(name: string) 
+    method AddLocation(singletons: AllSingletons, name: string) 
+      requires singletons.AllValid()
       requires Valid()
       modifies Repr
       ensures Valid()
+      ensures singletons.AllValid()
       ensures fresh(Repr - old(Repr))
     {
       locations := locations[name := |locations| + 1];

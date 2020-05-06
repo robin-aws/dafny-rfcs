@@ -12,37 +12,36 @@ module Singletons {
 
   class Globals {
     const singletons: AllSingletons
-    var generator: RandomNumberGenerator?
+    var generatorWrapper: RandomNumberGeneratorAsValidatable?
     const profiler: Profiler
     const fibonacciMemoized: Memoizer
     const factorialMemoized: Memoizer
 
     constructor() 
-      ensures profiler.Valid() 
-      ensures fresh(profiler.Repr)
-      ensures generator != null && generator.Valid()
-      ensures fresh(generator.Repr)
-      ensures fibonacciMemoized.Valid()
-      ensures fresh(fibonacciMemoized)
-      ensures factorialMemoized.Valid()
-      ensures fresh(factorialMemoized)
+      ensures generatorWrapper in singletons.singletons
+      ensures singletons.AllValid()
     {
       var singletons := new AllSingletons();
       this.singletons := singletons;
 
-      profiler := new Profiler(singletons);
+      var profiler := new Profiler();
+      this.profiler := profiler;
+      singletons.AddSingleton(profiler);
 
       var generator := new MyRandomNumberGenerator();
-      this.generator := generator;
-      var wrapper := new RandomNumberGeneratorAsValidatable(singletons, generator);
-      assert singletons.AllValid();
-      fibonacciMemoized := new Memoizer(singletons, (n: nat) => Fibonacci(n));
-      factorialMemoized := new Memoizer(singletons, (n: nat) => Factorial(n));
+      var generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
+      this.generatorWrapper := generatorWrapper;
+      singletons.AddSingleton(generatorWrapper);
 
+      fibonacciMemoized := new Memoizer((n: nat) => Fibonacci(n));
+      factorialMemoized := new Memoizer((n: nat) => Factorial(n));
+      
       new;
       
-      profiler.AddLocation("Foo");
-      profiler.AddLocation("Bar");
+      singletons.AddSingleton(profiler);
+
+      profiler.AddLocation(singletons, "Foo");
+      profiler.AddLocation(singletons, "Bar");
     }
 
     static function method Fibonacci(n: nat): nat
@@ -59,12 +58,13 @@ module Singletons {
   method Main() {
     var globals := new Globals();
 
-    var random := globals.generator.Generate(10);
+    var random := globals.generatorWrapper.generator.Generate(10);
 
     expect "Foo" in globals.profiler.locations;
     globals.profiler.RecordCall("Foo");
 
     var tenthFactorial := globals.factorialMemoized.Apply(10);
+    var tenthFibonacci := globals.fibonacciMemoized.Apply(10);
   }
 }
 
