@@ -32,7 +32,7 @@ module Profiling {
 
     method AddLocation(singletons: AllSingletons, name: string) 
       requires singletons.AllValid()
-      requires Valid()
+      requires this in singletons.singletons
       modifies Repr
       ensures Valid()
       ensures singletons.AllValid()
@@ -45,9 +45,11 @@ module Profiling {
       requires Valid()
       requires name in locations
       modifies Repr
+      ensures Valid()
     {
       var id := locations[name];
       calls.Add(id);
+      Repr := {this} + calls.Repr;
     }
   }
 }

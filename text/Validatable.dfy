@@ -10,7 +10,12 @@ module Validation {
     ghost var singletonReprs: set<object>
 
     predicate AllValid() reads this, singletons, singletonReprs {
-      forall s :: s in singletons ==> this !in s.Repr && s.Repr <= singletonReprs && s.Valid()
+      forall s :: s in singletons ==> (
+        && this !in s.Repr // No Russel's paradox please :)
+        && s.Valid()
+        && s.Repr <= singletonReprs 
+        && (forall other :: other in singletons && other != s ==> other.Repr !! s.Repr)
+      )
     }
 
     constructor() 
@@ -26,6 +31,7 @@ module Validation {
       requires AllValid()
       requires v.Valid()
       requires this !in v.Repr
+      requires singletonReprs !! v.Repr
       modifies this
       ensures singletons == old(singletons) + {v}
       ensures singletonReprs == old(singletonReprs) + v.Repr
@@ -37,10 +43,23 @@ module Validation {
 
     method ExpectValid(s: Validatable) 
       requires AllValid()
+      ensures s in singletons
       ensures s.Valid()
-      ensures s.Repr <= s.Repr <= singletonReprs
+      ensures s.Repr <= singletonReprs
     {
       expect s in singletons;
+    }
+
+    twostate lemma AllStillValid(v: Validatable)
+      requires old(AllValid())
+      requires v in singletons
+      requires unchanged(`singletons)
+      requires forall o :: o !in v.Repr ==> unchanged(o)
+      requires v.Valid()
+      requires fresh(v.Repr - old(v.Repr))
+      requires singletonReprs == old(singletonReprs) + v.Repr
+      ensures AllValid() 
+    {
     }
   }
 }

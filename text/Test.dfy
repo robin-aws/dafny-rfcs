@@ -19,30 +19,28 @@ module Singletons {
 
     constructor() 
       ensures singletons.AllValid()
+      ensures fresh(singletons)
       ensures fresh(singletons.singletonReprs)
     {
-      var singletons := new AllSingletons();
-      this.singletons := singletons;
+      this.singletons := new AllSingletons();
 
-      var profiler := new Profiler();
-      this.profiler := profiler;
-      singletons.AddSingleton(profiler);
-
+      this.profiler := new Profiler();
+      
       var generator := new MyRandomNumberGenerator();
-      var generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
-      this.generatorWrapper := generatorWrapper;
-      singletons.AddSingleton(generatorWrapper);
-
+      this.generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
+      
       fibonacciMemoized := new Memoizer((n: nat) => Fibonacci(n));
       factorialMemoized := new Memoizer((n: nat) => Factorial(n));
       
       new;
-      
+
       singletons.AddSingleton(profiler);
+      singletons.AddSingleton(generatorWrapper);
+      singletons.AddSingleton(fibonacciMemoized);
+      singletons.AddSingleton(factorialMemoized);
       
       profiler.AddLocation(singletons, "Foo");
       profiler.AddLocation(singletons, "Bar");
-      assert fresh(fibonacciMemoized.Repr);
     }
 
     static function method Fibonacci(n: nat): nat
@@ -62,6 +60,10 @@ module Singletons {
     if globals.generatorWrapper != null {
       globals.singletons.ExpectValid(globals.generatorWrapper);
       var random := globals.generatorWrapper.generator.Generate(10);
+      if globals.generatorWrapper != null {
+        globals.singletons.AllStillValid(globals.generatorWrapper);
+        assert globals.singletons.AllValid();
+      }
     }
 
     globals.singletons.ExpectValid(globals.profiler);
@@ -73,6 +75,33 @@ module Singletons {
 
     globals.singletons.ExpectValid(globals.fibonacciMemoized);
     var tenthFibonacci := globals.fibonacciMemoized.Apply(10);
+  }
+
+  method GenerateRandom(globals: Globals, max: nat) returns (res: nat) 
+    requires globals.singletons.AllValid()
+    requires globals.generatorWrapper != null;
+    requires 0 < max
+    modifies globals.generatorWrapper.Repr
+    ensures globals.singletons.AllValid()
+  {
+    globals.singletons.ExpectValid(globals.generatorWrapper);
+    res := globals.generatorWrapper.Generate(max);
+    globals.singletons.AllStillValid(globals.generatorWrapper);
+  }
+
+  method RecordCall(globals: Globals, name: string)
+    requires globals.singletons.AllValid()
+    requires name in globals.profiler.locations
+    modifies globals.profiler.Repr, globals.singletons
+    ensures globals.singletons.AllValid()
+  {
+    globals.singletons.ExpectValid(globals.profiler);
+    assert globals.singletons !in globals.profiler.Repr;
+    globals.profiler.RecordCall(name);
+    assert globals.singletons !in globals.profiler.Repr;
+    globals.singletons.singletonReprs := globals.singletons.singletonReprs + globals.profiler.Repr;
+    assert globals.profiler.Valid();
+    globals.singletons.AllStillValid(globals.profiler);
   }
 }
 
