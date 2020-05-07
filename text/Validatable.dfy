@@ -1,64 +1,68 @@
 module Validation {
   trait {:termination false} Validatable {
     ghost var Repr: set<object>
+
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr
+
+    // Convenience predicate, since you often want to assert that 
+    // new objects in Repr are fresh as well.
+    // TODO-RS: Better name?
+    twostate predicate ValidAndFresh() 
+      reads this, Repr
+      ensures ValidAndFresh() ==> Valid() && fresh(Repr - old(Repr))
+    {
+      Valid() && fresh(Repr - old(Repr))
+    }
   }
 
-  // This would be a singleton to track all valid-by-default objects
-  class AllSingletons {
-    var singletons: set<Validatable>
-    ghost var singletonReprs: set<object>
+  class ValidSet extends Validatable {
+    var objects: set<Validatable>
 
-    predicate AllValid() reads this, singletons, singletonReprs {
-      forall s :: s in singletons ==> (
-        && this !in s.Repr // No Russel's paradox please :)
+    predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
+      && this in Repr
+      && objects <= Repr
+      && forall s :: s in objects ==> (
+        && s in Repr
+        && s.Repr <= Repr 
+        && this !in s.Repr // No Russell's paradox please :)
         && s.Valid()
-        && s.Repr <= singletonReprs 
-        && (forall other :: other in singletons && other != s ==> other.Repr !! s.Repr)
+        && (forall other :: other in objects && other != s ==> other.Repr !! s.Repr)
       )
     }
 
     constructor() 
-      ensures AllValid() 
-      ensures singletons == {}
-      ensures singletonReprs == {}
+      ensures Valid() 
+      ensures objects == {}
+      ensures Repr == {this}
     {
-      singletons := {};
-      singletonReprs := {};
+      objects := {};
+      Repr := {this};
     }
 
-    method AddSingleton(v: Validatable) 
-      requires AllValid()
+    method Add(v: Validatable) 
+      requires Valid()
       requires v.Valid()
       requires this !in v.Repr
-      requires singletonReprs !! v.Repr
+      requires Repr !! v.Repr
       modifies this
-      ensures singletons == old(singletons) + {v}
-      ensures singletonReprs == old(singletonReprs) + v.Repr
-      ensures AllValid()
+      ensures objects == old(objects) + {v}
+      ensures Repr == old(Repr) + v.Repr
+      ensures Valid()
     {
-      singletons := singletons + {v};
-      singletonReprs := singletonReprs + v.Repr;
+      objects := objects + {v};
+      Repr := Repr + v.Repr;
     }
 
-    method ExpectValid(s: Validatable) 
-      requires AllValid()
-      ensures s in singletons
-      ensures s.Valid()
-      ensures s.Repr <= singletonReprs
-    {
-      expect s in singletons;
-    }
-
-    twostate lemma AllStillValid(v: Validatable)
-      requires old(AllValid())
-      requires v in singletons
-      requires unchanged(`singletons)
-      requires forall o :: o !in v.Repr ==> unchanged(o)
+    twostate lemma Updated(v: Validatable)
+      requires old(Valid())
+      requires v in objects
       requires v.Valid()
+      requires unchanged(`objects)
+      requires forall o :: 
+        o !in old(v.Repr) && o != this ==> fresh(o) || unchanged(o)
       requires fresh(v.Repr - old(v.Repr))
-      requires singletonReprs == old(singletonReprs) + v.Repr
-      ensures AllValid() 
+      requires Repr == old(Repr) + v.Repr
+      ensures ValidAndFresh() 
     {
     }
   }

@@ -28,6 +28,7 @@ module Memoization {
       modifies this
       ensures Valid()
       ensures res == f(t)
+      ensures fresh(Repr - old(Repr))
     {
       if t in results {
         res := results[t];

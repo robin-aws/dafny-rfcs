@@ -30,13 +30,10 @@ module Profiling {
       Repr := {this} + calls.Repr;
     }
 
-    method AddLocation(singletons: AllSingletons, name: string) 
-      requires singletons.AllValid()
-      requires this in singletons.singletons
+    method AddLocation(name: string)
+      requires Valid()
       modifies Repr
-      ensures Valid()
-      ensures singletons.AllValid()
-      ensures fresh(Repr - old(Repr))
+      ensures ValidAndFresh()
     {
       locations := locations[name := |locations| + 1];
     }
@@ -45,7 +42,7 @@ module Profiling {
       requires Valid()
       requires name in locations
       modifies Repr
-      ensures Valid()
+      ensures ValidAndFresh()
     {
       var id := locations[name];
       calls.Add(id);

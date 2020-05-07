@@ -80,8 +80,7 @@ module Random {
       requires Valid()
       requires 0 < max
       modifies Repr
-      ensures Valid()
-      ensures fresh(Repr - old(Repr))
+      ensures ValidAndFresh()
       ensures 0 <= res < max 
     {
       res := generator.Generate(max);
