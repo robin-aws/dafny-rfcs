@@ -4,6 +4,13 @@ module Validation {
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr
 
+    predicate ValidComponent(component: Validatable) reads this, Repr {
+      && component in Repr
+      && component.Repr <= Repr
+      && this !in component.Repr
+      && component.Valid()
+    }
+
     // Convenience predicate, since you often want to assert that 
     // new objects in Repr are fresh as well.
     // TODO-RS: Better name?
@@ -24,7 +31,7 @@ module Validation {
       && forall s :: s in objects ==> (
         && s in Repr
         && s.Repr <= Repr 
-        && this !in s.Repr // No Russell's paradox please :)
+        && this !in s.Repr
         && s.Valid()
         && (forall other :: other in objects && other != s ==> other.Repr !! s.Repr)
       )

@@ -3,7 +3,7 @@ include "./Random.dfy"
 include "./Memoization.dfy"
 include "./Validatable.dfy"
 
-module Singletons {
+module SingletonsTest {
 
   import opened Profiling
   import opened Random
