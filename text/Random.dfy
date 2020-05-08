@@ -4,6 +4,45 @@ module Random {
 
   import opened Validation
 
+  class Singleton extends Validatable {
+
+    var generatorWrapper: RandomNumberGeneratorAsValidatable?
+    var singletons: ValidSet
+
+    constructor() ensures Valid() {
+      var generator := new MyRandomNumberGenerator();
+      this.generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
+      
+      singletons := new ValidSet();
+      new;
+      singletons.Add(generatorWrapper);
+      Repr := {this} + singletons.Repr;
+    }
+
+    predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
+      && this in Repr
+      && ValidComponent(singletons)
+      && generatorWrapper != null
+      && ValidComponent(generatorWrapper)
+      && generatorWrapper in singletons.objects
+      && singletons !in generatorWrapper.Repr
+    }
+
+    method GenerateRandom(max: nat) returns (res: nat) 
+      requires Valid()
+      requires 0 < max
+      modifies this, generatorWrapper.Repr, singletons
+      ensures Valid()
+    {
+      res := generatorWrapper.Generate(max);
+
+      singletons.Repr := singletons.Repr + generatorWrapper.Repr;
+      singletons.Updated(generatorWrapper);
+
+      Repr := Repr + singletons.Repr;
+    }
+  }
+
   trait RandomNumberGenerator {
     ghost var Repr: set<object>
     predicate Valid() 
