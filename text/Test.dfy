@@ -10,9 +10,15 @@ module SingletonsTest {
   import opened Memoization
   import opened Validation
 
-  // Top-level object used to simulate singleton support
+  // Top-level object used to simulate singleton support.
+  // Ultimately, singletons are equivalent to explicitly passing shared
+  // objects as extra arguments to every function and method, and that's what
+  // I'm doing here. It means that verification should be tractable no matter what,
+  // but we could be stuck with a lot of repetition. The intention is for IndependentSet
+  // to abstract that away, and it's promising so far but the POC is not yet complete
+  // (this file is currently hanging the verification process).
   class Globals {
-    const singletons: ValidSet
+    const singletons: IndependentSet
     var random: Random.Singleton
     const profiler: Profiler
     const fibonacciMemoized: Memoizer
@@ -26,7 +32,7 @@ module SingletonsTest {
       ensures fresh(random.Repr)
       ensures random in singletons.Repr
     {
-      this.singletons := new ValidSet({});
+      this.singletons := new IndependentSet({});
 
       this.profiler := new Profiler();
       
@@ -67,8 +73,6 @@ module SingletonsTest {
     
     expect globals.fibonacciMemoized in globals.singletons.objects;
     var tenthFibonacci := FibonacciMemoized(globals, 10);
-
-    
   }
 
   method FibonacciMemoized(globals: Globals, n: nat) returns (res: nat)

@@ -24,7 +24,7 @@ module Random {
       && ValidComponent(generatorWrapper)
     }
 
-    method GenerateRandom(context: ValidSet, max: nat) returns (res: nat) 
+    method GenerateRandom(context: IndependentSet, max: nat) returns (res: nat) 
       requires Valid()
       requires context.Valid()
       requires this in context.objects

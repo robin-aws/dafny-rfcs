@@ -1,9 +1,16 @@
 module Validation {
+
+  // A trait for objects with a Valid() predicate. Necessary in order to
+  // generalize some proofs, but also useful for reducing the boilerplate
+  // that most such objects need to include.
   trait {:termination false} Validatable {
+    // TODO-RS: repr?
     ghost var Repr: set<object>
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr
 
+    // Convenience predicate for when your object's validity depends on one
+    // or more other objects.
     predicate ValidComponent(component: Validatable)
       reads this, Repr 
       ensures ValidComponent(component) ==> (
@@ -34,6 +41,7 @@ module Validation {
     set x,o | o in objects && x in o.Repr :: x
   }
 
+  // TODO-RS: Better name? I don't hate this but...
   predicate Independent(objects: set<Validatable>) 
     reads objects, AllReprs(objects)
   {
@@ -43,7 +51,10 @@ module Validation {
   // A collection of mutually disjoint (in terms of Repr's) Validatable objects.
   // The advantage of this datatype is allowing individual elements to change
   // from one Valid() state to another under the right conditions.
-  class ValidSet extends Validatable {
+  class IndependentSet extends Validatable {
+    // TODO-RS: Curently non-ghost because of the expect statements, but
+    // I believe those aren't necessary with refactoring - calling contexts
+    // should be aware of the contents if carefully managed.
     var objects: set<Validatable>
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
@@ -65,7 +76,7 @@ module Validation {
       Repr := {this} + objects + AllReprs(objects);
     }
 
-    predicate Contains(other: ValidSet) 
+    predicate Contains(other: IndependentSet) 
       requires Valid()
       requires other.Valid()
       reads Repr, other.Repr 
@@ -87,6 +98,11 @@ module Validation {
       Repr := Repr + v.Repr;
     }
 
+    // Used to re-assert validity when a single contained object
+    // changes to a new Valid() state.
+    // TODO-RS: Is there some way to combine this with the
+    // `Repr := Repr + v.Repr` statement that every invocation
+    // will have to do first?
     twostate lemma Updated(v: Validatable)
       requires old(Valid())
       requires v in objects
