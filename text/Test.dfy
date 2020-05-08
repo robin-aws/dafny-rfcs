@@ -13,7 +13,7 @@ module SingletonsTest {
   // Top-level object used to simulate singleton support
   class Globals {
     const singletons: ValidSet
-    var generatorWrapper: RandomNumberGeneratorAsValidatable?
+    var random: Random.Singleton
     const profiler: Profiler
     const fibonacciMemoized: Memoizer
     const factorialMemoized: Memoizer
@@ -22,14 +22,15 @@ module SingletonsTest {
     constructor() 
       ensures singletons.Valid()
       ensures fresh(singletons.Repr)
-      ensures this !in generatorWrapper.Repr
+      ensures random.Valid()
+      ensures fresh(random.Repr)
+      ensures random in singletons.Repr
     {
-      this.singletons := new ValidSet();
+      this.singletons := new ValidSet({});
 
       this.profiler := new Profiler();
       
-      var generator := new MyRandomNumberGenerator();
-      this.generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
+      this.random := new Random.Singleton();
       
       fibonacciMemoized := new Memoizer((n: nat) => Fibonacci(n));
       factorialMemoized := new Memoizer((n: nat) => Factorial(n));
@@ -37,7 +38,7 @@ module SingletonsTest {
       new;
 
       singletons.Add(profiler);
-      singletons.Add(generatorWrapper);
+      singletons.Add(random);
       singletons.Add(fibonacciMemoized);
       singletons.Add(factorialMemoized);
     }
@@ -56,10 +57,9 @@ module SingletonsTest {
   method Main() {
     var globals := new Globals();
       
-    if globals.generatorWrapper != null {
-      expect globals.generatorWrapper in globals.singletons.objects;
-      var random := GenerateRandom(globals, 10);
-    }
+    // var randomNumber := globals.random.GenerateRandom(globals.singletons, 10);
+    // globals.singletons.Updated(globals.random);
+    // assert globals.singletons.Valid();
 
     expect "Foo" in globals.profiler.locations;
     expect globals.profiler in globals.singletons.objects;
@@ -67,6 +67,8 @@ module SingletonsTest {
     
     expect globals.fibonacciMemoized in globals.singletons.objects;
     var tenthFibonacci := FibonacciMemoized(globals, 10);
+
+    
   }
 
   method FibonacciMemoized(globals: Globals, n: nat) returns (res: nat)
@@ -79,21 +81,6 @@ module SingletonsTest {
 
     globals.singletons.Repr := globals.singletons.Repr + globals.fibonacciMemoized.Repr;
     globals.singletons.Updated(globals.fibonacciMemoized);
-  }
-
-  method GenerateRandom(globals: Globals, max: nat) returns (res: nat) 
-    requires globals.singletons.Valid()
-    requires globals.generatorWrapper != null 
-    requires globals.generatorWrapper in globals.singletons.objects
-    requires globals !in globals.generatorWrapper.Repr
-    requires 0 < max
-    modifies globals.generatorWrapper.Repr, globals.singletons
-    ensures globals.singletons.ValidAndFresh()
-  {
-    res := globals.generatorWrapper.Generate(max);
-
-    globals.singletons.Repr := globals.singletons.Repr + globals.generatorWrapper.Repr;
-    globals.singletons.Updated(globals.generatorWrapper);
   }
 
   method RecordCall(globals: Globals, name: string)

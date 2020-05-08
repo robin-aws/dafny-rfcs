@@ -4,7 +4,15 @@ module Validation {
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr
 
-    predicate ValidComponent(component: Validatable) reads this, Repr {
+    predicate ValidComponent(component: Validatable)
+      reads this, Repr 
+      ensures ValidComponent(component) ==> (
+        && component in Repr
+        && component.Repr <= Repr
+        && this !in component.Repr
+        && component.Valid()
+      )
+    {
       && component in Repr
       && component.Repr <= Repr
       && this !in component.Repr
@@ -22,28 +30,47 @@ module Validation {
     }
   }
 
+  function AllReprs(objects: set<Validatable>): set<object> reads objects {
+    set x,o | o in objects && x in o.Repr :: x
+  }
+
+  predicate Independent(objects: set<Validatable>) 
+    reads objects, AllReprs(objects)
+  {
+    forall o, o' :: o in objects && o' in objects && o != o' ==> o.Repr !! o'.Repr
+  }
+
+  // A collection of mutually disjoint (in terms of Repr's) Validatable objects.
+  // The advantage of this datatype is allowing individual elements to change
+  // from one Valid() state to another under the right conditions.
   class ValidSet extends Validatable {
     var objects: set<Validatable>
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
       && this in Repr
+      && forall o :: o in objects ==> ValidComponent(o)
       && objects <= Repr
-      && forall s :: s in objects ==> (
-        && s in Repr
-        && s.Repr <= Repr 
-        && this !in s.Repr
-        && s.Valid()
-        && (forall other :: other in objects && other != s ==> other.Repr !! s.Repr)
-      )
+      && AllReprs(objects) <= Repr
+      && Independent(objects)
     }
 
-    constructor() 
+    constructor(objects: set<Validatable>)
+      requires forall s :: s in objects ==> s.Valid()
+      requires Independent(objects)
       ensures Valid() 
-      ensures objects == {}
-      ensures Repr == {this}
+      ensures objects == objects
+      ensures Repr == {this} + objects + AllReprs(objects)
     {
-      objects := {};
-      Repr := {this};
+      this.objects := objects;
+      Repr := {this} + objects + AllReprs(objects);
+    }
+
+    predicate Contains(other: ValidSet) 
+      requires Valid()
+      requires other.Valid()
+      reads Repr, other.Repr 
+    {
+      other.objects <= objects
     }
 
     method Add(v: Validatable) 

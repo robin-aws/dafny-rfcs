@@ -7,39 +7,37 @@ module Random {
   class Singleton extends Validatable {
 
     var generatorWrapper: RandomNumberGeneratorAsValidatable?
-    var singletons: ValidSet
 
-    constructor() ensures Valid() {
+    constructor() 
+      ensures Valid() 
+      ensures fresh(Repr) 
+    {
       var generator := new MyRandomNumberGenerator();
       this.generatorWrapper := new RandomNumberGeneratorAsValidatable(generator);
-      
-      singletons := new ValidSet();
       new;
-      singletons.Add(generatorWrapper);
-      Repr := {this} + singletons.Repr;
+      Repr := {this} + generatorWrapper.Repr;
     }
 
     predicate Valid() reads this, Repr ensures Valid() ==> this in Repr {
       && this in Repr
-      && ValidComponent(singletons)
       && generatorWrapper != null
       && ValidComponent(generatorWrapper)
-      && generatorWrapper in singletons.objects
-      && singletons !in generatorWrapper.Repr
     }
 
-    method GenerateRandom(max: nat) returns (res: nat) 
+    method GenerateRandom(context: ValidSet, max: nat) returns (res: nat) 
       requires Valid()
+      requires context.Valid()
+      requires this in context.objects
       requires 0 < max
-      modifies this, generatorWrapper.Repr, singletons
+      modifies Repr, context
       ensures Valid()
+      ensures context.Valid()
     {
       res := generatorWrapper.Generate(max);
+      Repr := Repr + generatorWrapper.Repr;
 
-      singletons.Repr := singletons.Repr + generatorWrapper.Repr;
-      singletons.Updated(generatorWrapper);
-
-      Repr := Repr + singletons.Repr;
+      context.Repr := context.Repr + Repr;
+      context.Updated(this);
     }
   }
 
